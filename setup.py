@@ -16,6 +16,7 @@ def get_version(file, name='__version__'):
         exec(f.read(), {}, version_ns)
     return version_ns[name]
 
+
 version = get_version(pjoin(here, name, '_version.py'))
 
 with open(pjoin(here, 'README.md'), encoding='utf-8') as f:
@@ -28,16 +29,19 @@ requires = [
     'requests>=2.23.0',
     'selenium>=3.141.0',
     'ujson>=1.35',
+    'selenium==3.141.0',
+    'requests-oauthlib>=1.3.0',
+    'webdriver-manager>=2.4.0',
 ]
 
 requires_dev = [
-    'flake8>=3.7.8',
-    'mock',
-    'pytest>=4.3.0',
-    'pytest-cov>=2.6.1',
-    'Sphinx>=1.8.4',
-    'sphinx-markdown-builder>=0.5.2',
-] + requires
+                   'flake8>=3.7.8',
+                   'mock',
+                   'pytest>=4.3.0',
+                   'pytest-cov>=2.6.1',
+                   'Sphinx>=1.8.4',
+                   'sphinx-markdown-builder>=0.5.2',
+               ] + requires
 
 setup(
     name=name,
