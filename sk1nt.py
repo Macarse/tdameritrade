@@ -1,4 +1,5 @@
 from tdameritrade import TDClient
+import pandas as pd
 import argparse
 
 def main():
@@ -19,7 +20,6 @@ def main():
 def strangle_check(first, second):
     leg1 = parse_leg(first)
     leg2 = parse_leg(second)
-
     tdclient = TDClient()
 
     call = tdclient.optionsDF(symbol=leg1['symbol'], contractType=leg1['contractType'], strike=leg1['strike'], fromDate=leg1['date'], toDate=leg1['date'])
@@ -34,7 +34,44 @@ def strangle_check(first, second):
 
 
 def strangle_finder(symbol, date):
-    print('strangle_finder: ', symbol, date)
+    tdclient = TDClient()
+    df = tdclient.optionsDF(symbol=symbol, fromDate=date, toDate=date)
+
+    interest_filter = df["openInterest"]+df["totalVolume"] > 0
+    delta_16_filter = abs(abs(df['delta'])-0.16) < 0.01
+    filtered = df[['putCall', 'description', 'delta', 'strikePrice', 'bid', 'ask']].where(delta_16_filter).dropna()
+
+    calls_df = filtered[filtered['putCall']=='CALL']
+    puts_df = filtered[filtered['putCall']=='PUT']
+
+    # If we don't have at least 1 call or 1 put, return
+    if len(calls_df.index) == 0 or len(puts_df.index) == 0:
+        print("Couldn't find any good strangles. Sorry")
+        return
+
+    # Small hack to cross join
+    pd.options.mode.chained_assignment = None
+    calls_df['merge_key'] = 0
+    puts_df['merge_key'] = 0
+    trades = calls_df.merge(puts_df, on='merge_key', suffixes=('_call', '_put'))
+
+    # Additional columns to better analize data
+    trades['max_profit'] = round(trades['bid_call']+trades['bid_put'], 2)
+    trades['strategy_delta'] = abs(trades['delta_call'])+abs(trades['delta_put'])
+
+    # print max profit
+    max_profit = trades.sort_values('max_profit', ascending=False).iloc[0]
+    print("Max Profit: %s/%s @%s with delta %s" %(max_profit['strikePrice_call'], max_profit['strikePrice_put'], max_profit['max_profit'], max_profit['strategy_delta']))
+
+    # higher probability
+    prob = trades.sort_values('strategy_delta').iloc[0]
+    print("Best probability: %s/%s @%s with delta %s" %(prob['strikePrice_call'], prob['strikePrice_put'], prob['max_profit'], prob['strategy_delta']))
+
+    # Best downside protection
+    downside = trades.sort_values('strikePrice_put', ascending=False).iloc[0]
+    print("Best downside risk: %s/%s @%s with delta %s" %(downside['strikePrice_call'], downside['strikePrice_put'], downside['max_profit'], downside['strategy_delta']))
+
+
 
 
 def parse_leg(text):
